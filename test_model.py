@@ -90,5 +90,18 @@ def generate_sheet_music(midi_path):
     score.show()
 
 
+import argparse
+
+# ... (rest of your functions: transcribe_song, build_midi_notes, generate_sheet_music) ...
+
 if __name__ == "__main__":
-    transcribe_song("test_piano_audio.wav")
+    parser = argparse.ArgumentParser(description="Transcribe piano audio to MIDI.")
+    parser.add_argument(
+        "--audio", 
+        type=str, 
+        default="twinkle-twinkle-little-star-easy.wav", 
+        help="Path to the input piano audio file."
+    )
+    args = parser.parse_args()
+
+    transcribe_song(args.audio)
