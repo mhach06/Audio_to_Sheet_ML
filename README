@@ -1,0 +1,20 @@
+# Automatic Music Transcription (Audio to Sheet Music)
+
+## Overview
+This project is a Machine Learning pipeline that takes raw polyphonic piano audio and automatically transcribes it into symbolic music (MIDI/Sheet Music). It bridges the gap between Digital Signal Processing (DSP) and Deep Learning, converting acoustic waveforms into time-frequency representations before using a neural network to predict pitch, onset, and velocity.
+
+## Project Architecture
+The codebase is heavily modularized to separate data processing, mathematical transformations, and machine learning logic.
+
+* **`dsp.py`**: Handles all Digital Signal Processing. Converts raw `.wav` audio into 2D tensors (spectrograms) using frequency transforms (e.g., Constant-Q Transform).
+* **`dataset.py`**: The data pipeline. Loads audio and ground-truth MIDI files in batches, aligns them, and feeds them into the training loop to prevent memory overflows.
+* **`model.py`**: Contains the neural network architecture. Uses a multi-task approach with a shared backbone to process the spectrogram, splitting into separate heads for Pitch (probability of note active), Onset (start of note), and Velocity (volume).
+* **`train.py`**: The main execution script for training the model. Handles forward passes, loss calculation, backpropagation, and model checkpointing.
+* **`post_process.py`**: Translates the raw probability tensors output by the network back into discrete `Note` objects, tracks temporal state (duration), and serializes the result into standard MIDI format.
+
+## Setup and Requirements
+(To be populated with `pip install -r requirements.txt` instructions, environment setup, and Colab usage details).
+
+## Future Work
+* Left/Right hand separation logic.
+* Expanding from piano-only to multi-instrument transcription.
