@@ -40,7 +40,7 @@ class AudioDataset(Dataset):
             X = get_loudness(ind_freq)
             
             # 2. Load MIDI
-            midi_string = f[f'{song_key}/midi'][()]
+            midi_string = f[f'{song_key}/midi'][()].tobytes()
             ns = note_seq.NoteSequence.FromString(midi_string)
             pm = note_seq.note_sequence_to_pretty_midi(ns)
 
