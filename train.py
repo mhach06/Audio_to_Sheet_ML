@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 
 from dataset import AudioDataset
-from model import PianoTranscriptionCNN
+from model import PianoTranscriptionModel
 
 
 def main():
@@ -20,7 +20,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 
-    model = PianoTranscriptionCNN()
+    model = PianoTranscriptionModel()
 
     model = model.to(device)
 

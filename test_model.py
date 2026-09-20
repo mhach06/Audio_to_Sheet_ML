@@ -2,13 +2,13 @@ import numpy as np
 import pretty_midi
 import music21
 import torch
-from model import PianoTranscriptionCNN
+from model import PianoTranscriptionModel
 from dsp import load_file, transform, get_loudness
 
 def transcribe_song(audio_path, model_path="piano_model.pth"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = PianoTranscriptionCNN().to(device)
+    model = PianoTranscriptionModel().to(device)
 
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
