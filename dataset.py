@@ -1,49 +1,69 @@
 import torch
 import os
+import random
+import numpy as np
+import h5py
+import note_seq
 from torch.utils.data import Dataset
-import pretty_midi
-from dsp import load_file, transform, get_loudness, SR, HOP_LENGTH
+from dsp import transform, get_loudness, SR, HOP_LENGTH
+
+def int16_to_float32(x):
+    return (x / 32767.).astype(np.float32)
 
 class AudioDataset(Dataset):
+    def __init__(self, data_dir):
+        self.data_dir = data_dir
+        self.fps = SR / HOP_LENGTH
+        self.samples = []
 
-    def __init__(self, audio_dir):
-        self.audio_dir = audio_dir
-        self.audio_files = sorted([f for f in os.listdir(audio_dir) if f.endswith('.wav')])
-        self.fps = SR / HOP_LENGTH  # frames per second
+        # Index all songs across all HDF5 containers
+        h5_files = [f for f in os.listdir(data_dir) if f.endswith('.h5')]
+        for h5_name in h5_files:
+            h5_path = os.path.join(data_dir, h5_name)
+            with h5py.File(h5_path, 'r') as f:
+                for song_key in f.keys():
+                    if 'audio' in f[song_key] and 'midi' in f[song_key]:
+                        self.samples.append((h5_path, song_key))
 
     def __len__(self):
-        return len(self.audio_files)
+        return len(self.samples)
 
     def __getitem__(self, index):
-        audio_path = os.path.join(self.audio_dir, self.audio_files[index])
-        midi_path = audio_path.replace('.wav', '.mid')
+        h5_path, song_key = self.samples[index]
 
-        # handle audio file
-        audio_data, sr = load_file(audio_path)
-        ind_freq = transform(audio_data, sr)
-        X = get_loudness(ind_freq)
+        with h5py.File(h5_path, 'r') as f:
+            # 1. Load Audio
+            audio_int16 = f[f'{song_key}/audio'][()]
+            audio_data = int16_to_float32(audio_int16)
+            
+            ind_freq = transform(audio_data, SR)
+            X = get_loudness(ind_freq)
+            
+            # 2. Load MIDI
+            midi_string = f[f'{song_key}/midi'][()]
+            ns = note_seq.NoteSequence.FromString(midi_string)
+            pm = note_seq.note_sequence_to_pretty_midi(ns)
 
-        # handle midi file 
-        pm = pretty_midi.PrettyMIDI(midi_path) # generates matrix of active notes perfectly synchronized with CQT frame rate
+            Y_full = pm.get_piano_roll(fs=self.fps) 
+            Y = Y_full[21:109, :]  # 88 piano keys
 
-        Y_full = pm.get_piano_roll(fs=self.fps) # creates matrix of shape (128 rows, N time columns). Since each song dif N, make it fixed
-        Y = Y_full[21:109, :]  # only keep the 88 piano keys
-
-        chunk_size = 100 # 100 frames ~= 3.2 seconds
+        # 3. Dynamic Chunking
+        chunk_size = 100
         total_frames = X.shape[1]
 
-        # randomly select a starting column for the chunk
-        start_col = random.randint(0, total_frames - chunk_size)
+        start_col = 0 if total_frames <= chunk_size else random.randint(0, total_frames - chunk_size)
 
-        # slice 2D matrices
         X_chunk = X[:, start_col:start_col + chunk_size]
-        Y_chunk = Y[:, start_col:start_col + chunk_size]
+        
+        # Align MIDI bounds safely in case of rounding mismatches
+        Y_chunk = np.zeros((88, chunk_size))
+        y_end = min(start_col + chunk_size, Y.shape[1])
+        copy_len = max(0, y_end - start_col)
+        
+        if copy_len > 0:
+            Y_chunk[:, :copy_len] = Y[:, start_col:y_end]
 
         X_tensor = torch.tensor(X_chunk, dtype=torch.float32)
-        Y_tensor = torch.tensor(Y_chunk, dtype=torch.float32)
+        Y_tensor = (torch.tensor(Y_chunk, dtype=torch.float32) > 0).float()
 
-        # Y_tensor holds velocities. For probability, only need 0 or 1. So, convert to binary
-        Y_tensor = (Y_tensor > 0).float()
-
-        # returns X, which is fed to model, and Y, which is target output for the model (truth value)
         return X_tensor, Y_tensor
