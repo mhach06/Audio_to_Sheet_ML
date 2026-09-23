@@ -102,6 +102,12 @@ if __name__ == "__main__":
         default="twinkle-twinkle-little-star-easy.wav", 
         help="Path to the input piano audio file."
     )
+    parser.add_argument(
+        "--model", 
+        type=str, 
+        default="piano_model.pth", 
+        help="Path to the trained model file."
+    )
     args = parser.parse_args()
 
-    transcribe_song(args.audio)
+    transcribe_song(args.audio, args.model)

@@ -58,6 +58,9 @@ def main():
         avg_val_loss = val_loss / len(val_loader)
         print(f"Epoch [{epoch+1}/50], Validation Loss: {avg_val_loss:.4f}")
 
+        if epoch % 5 == 0:
+            torch.save(model.state_dict(), f"piano_model_epoch_{epoch+1}.pth")
+
     torch.save(model.state_dict(), "piano_model.pth")
 
 if __name__ == "__main__":
