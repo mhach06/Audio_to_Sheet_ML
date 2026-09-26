@@ -36,15 +36,14 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
     tracker = np.full(88, -1)
     completed_notes = []
 
-    # 1. Tighten Treble Start Threshold
-    # Bass stays exactly the same (0.65). Treble is raised from 0.50 to 0.55 to ignore damper noise.
-    start_thresholds = np.linspace(0.65, 0.55, 88).reshape(88, 1)
+    # 1. Stricter Treble Start Threshold to crush overtones
+    # Bass stays at 0.65. Treble is raised to 0.60 to demand higher confidence for high notes.
+    start_thresholds = np.linspace(0.65, 0.60, 88).reshape(88, 1)
     
-    # Bass stays exactly the same (0.45). Treble is raised from 0.25 to 0.30.
+    # Sustain remains forgiving to prevent real notes from being cut short
     end_thresholds = np.linspace(0.45, 0.30, 88).reshape(88, 1)
 
-    # 2. Maximum Noise Filter
-    # Increased from 4 to 5. This forces transient harmonic blips to be discarded.
+    # 2. Maximum Noise Filter (Keep at 5)
     MIN_NOTE_FRAMES = 5  
 
     for frame in range(probability_matrix.shape[1]):
@@ -55,7 +54,7 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
                 if prob > start_thresholds[note, 0]:
                     tracker[note] = frame
             else: 
-                # Keep the +0.30 spike detector exactly the same for the perfect left hand
+                # Keep the spike detector for perfect left-hand rhythm
                 if frame > 0 and (prob - probability_matrix[note, frame-1]) > 0.30:
                     duration = frame - tracker[note]
                     if duration >= MIN_NOTE_FRAMES:
@@ -68,7 +67,7 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
                         completed_notes.append((note + 21, tracker[note], frame))
                     tracker[note] = -1
 
-    # Clean up hanging notes at the end of the song
+    # Clean up hanging notes
     for note in range(88):
         if tracker[note] != -1:
             duration = probability_matrix.shape[1] - tracker[note]
