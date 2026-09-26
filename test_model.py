@@ -33,53 +33,53 @@ def transcribe_song(audio_path, model_path="piano_model.pth"):
     print(f"Transcription completed. {len(completed_notes)} notes to output_transcription.mid")
 
 def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
-    # 1. Create an array of 88 thresholds
-    # Create a gradual threshold: 
-    # Note 0 (lowest bass) = 0.70
-    # Note 87 (highest treble) = 0.45
-    # Everything in between scales smoothly.
-    thresholds = np.linspace(0.70, 0.45, 88).reshape(88, 1)
-
-    # Apply the thresholds element-wise across the matrix
-    binary_matrix = (probability_matrix > thresholds).astype(int)
-
     tracker = np.full(88, -1)
-    last_off_frame = np.full(88, -1)  
     completed_notes = []
 
-    # 2. Post-processing rules
-    MAX_GAP_FRAMES = 0   
-    MIN_NOTE_FRAMES = 4  
+    # 1. Hysteresis Thresholds (Sliding)
+    # The note must hit this higher threshold to turn ON
+    start_thresholds = np.linspace(0.60, 0.40, 88).reshape(88, 1)
+    
+    # The note can drop to this lower threshold and still stay ON (rescues the right hand)
+    end_thresholds = np.linspace(0.40, 0.15, 88).reshape(88, 1)
 
-    # 3. Iterate through frames to track note states
-    for frame in range(binary_matrix.shape[1]):
+    # 2. Lowered duration filter to catch quick, short right-hand taps
+    MIN_NOTE_FRAMES = 3  
+
+    for frame in range(probability_matrix.shape[1]):
         for note in range(88):
-            if binary_matrix[note, frame] == 1:
-                if tracker[note] == -1:
-                    if last_off_frame[note] != -1 and (frame - last_off_frame[note]) <= MAX_GAP_FRAMES:
-                        for i in reversed(range(len(completed_notes))):
-                            if completed_notes[i][0] == note + 21 and completed_notes[i][2] == last_off_frame[note]:
-                                tracker[note] = completed_notes[i][1] 
-                                completed_notes.pop(i) 
-                                break
-                        if tracker[note] == -1: 
-                            tracker[note] = frame
-                    else:
-                        tracker[note] = frame
-            else:
-                if tracker[note] != -1:
+            prob = probability_matrix[note, frame]
+
+            if tracker[note] == -1: 
+                # Note is currently OFF. Does it cross the start threshold?
+                if prob > start_thresholds[note, 0]:
+                    tracker[note] = frame
+            else: 
+                # Note is currently ON. 
+                
+                # CONDITION A: Did the player strike the key again? 
+                # (Look for a sudden +0.25 spike in model confidence)
+                if frame > 0 and (prob - probability_matrix[note, frame-1]) > 0.25:
                     duration = frame - tracker[note]
                     if duration >= MIN_NOTE_FRAMES:
                         completed_notes.append((note + 21, tracker[note], frame))
-                        last_off_frame[note] = frame 
+                    tracker[note] = frame # Instantly restart the note
+                
+                # CONDITION B: Did the note naturally fade out?
+                elif prob < end_thresholds[note, 0]:
+                    duration = frame - tracker[note]
+                    if duration >= MIN_NOTE_FRAMES:
+                        completed_notes.append((note + 21, tracker[note], frame))
                     tracker[note] = -1
 
+    # Clean up hanging notes at the end of the song
     for note in range(88):
         if tracker[note] != -1:
-            duration = binary_matrix.shape[1] - tracker[note]
+            duration = probability_matrix.shape[1] - tracker[note]
             if duration >= MIN_NOTE_FRAMES:
-                completed_notes.append((note + 21, tracker[note], binary_matrix.shape[1]))
+                completed_notes.append((note + 21, tracker[note], probability_matrix.shape[1]))
 
+    # Convert to MIDI File
     midi = pretty_midi.PrettyMIDI()
     piano_program = pretty_midi.instrument_name_to_program('Acoustic Grand Piano')
     piano = pretty_midi.Instrument(program=piano_program)
