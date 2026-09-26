@@ -33,14 +33,14 @@ def transcribe_song(audio_path, model_path="piano_model.pth"):
     print(f"Transcription completed. {len(completed_notes)} notes to output_transcription.mid")
 
 def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
-    # 1. Create an array of 88 thresholds (one for each key)
+    # 1. Create an array of 88 thresholds
     thresholds = np.zeros((88, 1))
     
-    # Bass notes (indices 0 to 43): Stricter threshold to separate repeated notes
-    thresholds[:44, 0] = 0.70 
+    # Bass notes (indices 0 to 43): Slightly lower to catch all repeated strikes
+    thresholds[:44, 0] = 0.60 
     
-    # Treble notes (indices 44 to 87): Forgiving threshold to preserve right-hand melodies
-    thresholds[44:, 0] = 0.50 
+    # Treble notes (indices 44 to 87): Much lower to rescue the right-hand melody
+    thresholds[44:, 0] = 0.30 
 
     # Apply the thresholds element-wise across the matrix
     binary_matrix = (probability_matrix > thresholds).astype(int)
@@ -51,7 +51,7 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
 
     # 2. Post-processing rules
     MAX_GAP_FRAMES = 0   
-    MIN_NOTE_FRAMES = 4  # A balanced sweet spot between 3 and 5
+    MIN_NOTE_FRAMES = 4  
 
     # 3. Iterate through frames to track note states
     for frame in range(binary_matrix.shape[1]):
