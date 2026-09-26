@@ -34,13 +34,11 @@ def transcribe_song(audio_path, model_path="piano_model.pth"):
 
 def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
     # 1. Create an array of 88 thresholds
-    thresholds = np.zeros((88, 1))
-    
-    # Bass notes (indices 0 to 43): Slightly lower to catch all repeated strikes
-    thresholds[:44, 0] = 0.60 
-    
-    # Treble notes (indices 44 to 87): Much lower to rescue the right-hand melody
-    thresholds[44:, 0] = 0.30 
+    # Create a gradual threshold: 
+    # Note 0 (lowest bass) = 0.70
+    # Note 87 (highest treble) = 0.45
+    # Everything in between scales smoothly.
+    thresholds = np.linspace(0.70, 0.45, 88).reshape(88, 1)
 
     # Apply the thresholds element-wise across the matrix
     binary_matrix = (probability_matrix > thresholds).astype(int)
