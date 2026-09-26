@@ -33,15 +33,17 @@ def transcribe_song(audio_path, model_path="piano_model.pth"):
     print(f"Transcription completed. {len(completed_notes)} notes to output_transcription.mid")
 
 def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
-    binary_matrix = (probability_matrix > 0.5).astype(int)
+    # 1. Raise the threshold from 0.5 to something stricter (e.g., 0.75 or 0.8)
+    CONFIDENCE_THRESHOLD = 0.75 
+    binary_matrix = (probability_matrix > CONFIDENCE_THRESHOLD).astype(int)
 
     tracker = np.full(88, -1)
-    last_off_frame = np.full(88, -1)  # Tracks when a note just ended
+    last_off_frame = np.full(88, -1)  
     completed_notes = []
 
-    # Post-processing hyperparameters
-    MAX_GAP_FRAMES = 1   # Reduced from 3. Only merge notes if the gap is a single frame.
-    MIN_NOTE_FRAMES = 3  # Keep this at 3 to continue filtering out random noise blips.
+    # 2. Adjust post-processing rules
+    MAX_GAP_FRAMES = 0   # Keep at 0 so we never merge intentional rapid notes
+    MIN_NOTE_FRAMES = 5  # Increased from 3. Discards any notes shorter than 5 frames to aggressively kill outliers
 
     # 1. Iterate through frames to track note states
     for frame in range(binary_matrix.shape[1]):
