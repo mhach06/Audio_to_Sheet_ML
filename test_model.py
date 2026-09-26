@@ -36,37 +36,32 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
     tracker = np.full(88, -1)
     completed_notes = []
 
-    # 1. Tighter Hysteresis Thresholds
-    # Bass stays near 0.65. Treble only drops to 0.50 (instead of 0.40) to stop false starts.
-    start_thresholds = np.linspace(0.65, 0.50, 88).reshape(88, 1)
+    # 1. Tighten Treble Start Threshold
+    # Bass stays exactly the same (0.65). Treble is raised from 0.50 to 0.55 to ignore damper noise.
+    start_thresholds = np.linspace(0.65, 0.55, 88).reshape(88, 1)
     
-    # Bass ends at 0.45. Treble ends at 0.25 (instead of 0.15) to stop noise from sustaining.
-    end_thresholds = np.linspace(0.45, 0.25, 88).reshape(88, 1)
+    # Bass stays exactly the same (0.45). Treble is raised from 0.25 to 0.30.
+    end_thresholds = np.linspace(0.45, 0.30, 88).reshape(88, 1)
 
-    # 2. Stronger Noise Filter
-    # Increased from 3 to 4. Forces the model to hold a note slightly longer before registering it.
-    MIN_NOTE_FRAMES = 4  
+    # 2. Maximum Noise Filter
+    # Increased from 4 to 5. This forces transient harmonic blips to be discarded.
+    MIN_NOTE_FRAMES = 5  
 
     for frame in range(probability_matrix.shape[1]):
         for note in range(88):
             prob = probability_matrix[note, frame]
 
             if tracker[note] == -1: 
-                # Note is currently OFF. Does it cross the start threshold?
                 if prob > start_thresholds[note, 0]:
                     tracker[note] = frame
             else: 
-                # Note is currently ON. 
-                
-                # CONDITION A: Did the player strike the key again? 
-                # (Look for a sudden +0.25 spike in model confidence)
-                if frame > 0 and (prob - probability_matrix[note, frame-1]) > 0.25:
+                # Keep the +0.30 spike detector exactly the same for the perfect left hand
+                if frame > 0 and (prob - probability_matrix[note, frame-1]) > 0.30:
                     duration = frame - tracker[note]
                     if duration >= MIN_NOTE_FRAMES:
                         completed_notes.append((note + 21, tracker[note], frame))
-                    tracker[note] = frame # Instantly restart the note
+                    tracker[note] = frame 
                 
-                # CONDITION B: Did the note naturally fade out?
                 elif prob < end_thresholds[note, 0]:
                     duration = frame - tracker[note]
                     if duration >= MIN_NOTE_FRAMES:
