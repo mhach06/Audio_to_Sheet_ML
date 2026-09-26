@@ -45,9 +45,10 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
     # then curves BACK UP in the high treble (0.65) to kill outliers and false chords.
     start_values = [0.70, 0.55, 0.60, 0.65] 
     
-    # End thresholds (Sustain):
-    # Smoothly drops from heavy bass sustain to quick treble decay
-    end_values = [0.45, 0.35, 0.30, 0.30]
+    # 2. STRIETER End thresholds (Sustain)
+    # Bass stays at 0.45. Middle C drops slightly to 0.40 for legato melodies.
+    # High Treble is pushed up aggressively to 0.50 and 0.55 to force a rapid, crisp cutoff.
+    end_values = [0.45, 0.40, 0.50, 0.55]
 
     # Use numpy to draw a perfectly smooth line between our anchors
     keys = np.arange(88)
