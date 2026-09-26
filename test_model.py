@@ -37,25 +37,20 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
     completed_notes = []
 
     # 1. Piecewise Anchor Thresholds
-    # Define the anchor keys: [0] Lowest A, [39] Middle C, [63] High D#, [87] Highest C
     key_anchors = [0, 39, 63, 87]
     
-    # Start thresholds: 
-    # Strict in bass (0.70), drops to catch the mid melody (0.55), 
-    # then curves BACK UP in the high treble (0.65) to kill outliers and false chords.
+    # Start thresholds (Keep these as they are working well)
     start_values = [0.70, 0.55, 0.60, 0.65] 
     
-    # 2. STRIETER End thresholds (Sustain)
-    # Bass stays at 0.45. Middle C drops slightly to 0.40 for legato melodies.
-    # High Treble is pushed up aggressively to 0.50 and 0.55 to force a rapid, crisp cutoff.
-    end_values = [0.45, 0.40, 0.50, 0.55]
+    # Dial back the high treble end thresholds slightly so quick notes don't die instantly
+    end_values = [0.45, 0.40, 0.40, 0.45]
 
-    # Use numpy to draw a perfectly smooth line between our anchors
     keys = np.arange(88)
     start_thresholds = np.interp(keys, key_anchors, start_values).reshape(88, 1)
     end_thresholds = np.interp(keys, key_anchors, end_values).reshape(88, 1)
 
-    MIN_NOTE_FRAMES = 5  
+    # 2. Lower the duration filter so crisp, quick melody notes aren't deleted
+    MIN_NOTE_FRAMES = 4  
 
     for frame in range(probability_matrix.shape[1]):
         for note in range(88):
