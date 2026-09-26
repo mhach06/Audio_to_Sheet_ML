@@ -36,28 +36,23 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
     tracker = np.full(88, -1)
     completed_notes = []
 
-    start_thresholds = np.zeros((88, 1))
-    end_thresholds = np.zeros((88, 1))
+    # 1. Piecewise Anchor Thresholds
+    # Define the anchor keys: [0] Lowest A, [39] Middle C, [63] High D#, [87] Highest C
+    key_anchors = [0, 39, 63, 87]
+    
+    # Start thresholds: 
+    # Strict in bass (0.70), drops to catch the mid melody (0.55), 
+    # then curves BACK UP in the high treble (0.65) to kill outliers and false chords.
+    start_values = [0.70, 0.55, 0.60, 0.65] 
+    
+    # End thresholds (Sustain):
+    # Smoothly drops from heavy bass sustain to quick treble decay
+    end_values = [0.45, 0.35, 0.30, 0.30]
 
-    # Define thresholds per octave (Octaves 0 through 8)
-    # Bass requires high confidence, treble is highly forgiving.
-    octave_starts = [0.70, 0.70, 0.65, 0.65, 0.60, 0.55, 0.50, 0.45, 0.45]
-    octave_ends   = [0.45, 0.45, 0.40, 0.40, 0.35, 0.30, 0.25, 0.20, 0.20]
-
-    # Octave 0 (Keys 0-2: A0, A#0, B0)
-    start_thresholds[0:3, 0] = octave_starts[0]
-    end_thresholds[0:3, 0]   = octave_ends[0]
-
-    # Octaves 1 through 7 (Keys 3 to 86, 12 keys per octave)
-    for oct_idx in range(1, 8):
-        start_key = 3 + (oct_idx - 1) * 12
-        end_key = start_key + 12
-        start_thresholds[start_key:end_key, 0] = octave_starts[oct_idx]
-        end_thresholds[start_key:end_key, 0]   = octave_ends[oct_idx]
-
-    # Octave 8 (Key 87: C8)
-    start_thresholds[87, 0] = octave_starts[8]
-    end_thresholds[87, 0]   = octave_ends[8]
+    # Use numpy to draw a perfectly smooth line between our anchors
+    keys = np.arange(88)
+    start_thresholds = np.interp(keys, key_anchors, start_values).reshape(88, 1)
+    end_thresholds = np.interp(keys, key_anchors, end_values).reshape(88, 1)
 
     MIN_NOTE_FRAMES = 5  
 
@@ -68,7 +63,7 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
             if tracker[note] == -1: 
                 if prob > start_thresholds[note, 0]:
                     
-                    # HARMONIC SUPPRESSION FILTER (Kept active to block overtones)
+                    # HARMONIC SUPPRESSION FILTER
                     is_overtone = False
                     for interval in [12, 19]:
                         fundamental = note - interval
@@ -81,6 +76,7 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
                     if not is_overtone:
                         tracker[note] = frame
             else: 
+                # Spike detector for repeated strikes
                 if frame > 0 and (prob - probability_matrix[note, frame-1]) > 0.30:
                     duration = frame - tracker[note]
                     if duration >= MIN_NOTE_FRAMES:
@@ -93,12 +89,14 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
                         completed_notes.append((note + 21, tracker[note], frame))
                     tracker[note] = -1
 
+    # Clean up hanging notes
     for note in range(88):
         if tracker[note] != -1:
             duration = probability_matrix.shape[1] - tracker[note]
             if duration >= MIN_NOTE_FRAMES:
                 completed_notes.append((note + 21, tracker[note], probability_matrix.shape[1]))
 
+    # Convert to MIDI File
     midi = pretty_midi.PrettyMIDI()
     piano_program = pretty_midi.instrument_name_to_program('Acoustic Grand Piano')
     piano = pretty_midi.Instrument(program=piano_program)
