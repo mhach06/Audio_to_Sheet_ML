@@ -36,15 +36,16 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
     tracker = np.full(88, -1)
     completed_notes = []
 
-    # 1. Hysteresis Thresholds (Sliding)
-    # The note must hit this higher threshold to turn ON
-    start_thresholds = np.linspace(0.60, 0.40, 88).reshape(88, 1)
+    # 1. Tighter Hysteresis Thresholds
+    # Bass stays near 0.65. Treble only drops to 0.50 (instead of 0.40) to stop false starts.
+    start_thresholds = np.linspace(0.65, 0.50, 88).reshape(88, 1)
     
-    # The note can drop to this lower threshold and still stay ON (rescues the right hand)
-    end_thresholds = np.linspace(0.40, 0.15, 88).reshape(88, 1)
+    # Bass ends at 0.45. Treble ends at 0.25 (instead of 0.15) to stop noise from sustaining.
+    end_thresholds = np.linspace(0.45, 0.25, 88).reshape(88, 1)
 
-    # 2. Lowered duration filter to catch quick, short right-hand taps
-    MIN_NOTE_FRAMES = 3  
+    # 2. Stronger Noise Filter
+    # Increased from 3 to 4. Forces the model to hold a note slightly longer before registering it.
+    MIN_NOTE_FRAMES = 4  
 
     for frame in range(probability_matrix.shape[1]):
         for note in range(88):
