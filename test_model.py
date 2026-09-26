@@ -40,8 +40,8 @@ def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
     completed_notes = []
 
     # Post-processing hyperparameters
-    MAX_GAP_FRAMES = 3   # If note returns within 3 frames, bridge the gap
-    MIN_NOTE_FRAMES = 3  # Discard notes shorter than 3 frames (noise)
+    MAX_GAP_FRAMES = 1   # Reduced from 3. Only merge notes if the gap is a single frame.
+    MIN_NOTE_FRAMES = 3  # Keep this at 3 to continue filtering out random noise blips.
 
     # 1. Iterate through frames to track note states
     for frame in range(binary_matrix.shape[1]):
