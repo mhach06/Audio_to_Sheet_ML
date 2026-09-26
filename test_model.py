@@ -3,7 +3,7 @@ import pretty_midi
 import music21
 import torch
 from model import PianoTranscriptionModel
-from dsp import load_file, transform, get_loudness, HOP_LENGTH
+from dsp import load_file, transform, get_loudness, HOP_LENGTH, SR
 
 def transcribe_song(audio_path, model_path="piano_model.pth"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
