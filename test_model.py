@@ -19,8 +19,8 @@ def transcribe_song(audio_path, model_path="piano_model.pth"):
 
     loudness_matrix = get_loudness(ind_freq)
 
-    X_tensor = torch.tensor(loudness_matrix, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(device)
-
+    X_tensor = torch.tensor(loudness_matrix, dtype=torch.float32).unsqueeze(0).to(device)
+    
     print("Running model inference...")
     with torch.no_grad():
         output_tensor = model(X_tensor)
