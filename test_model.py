@@ -32,43 +32,65 @@ def transcribe_song(audio_path, model_path="piano_model.pth"):
 
     print(f"Transcription completed. {len(completed_notes)} notes to output_transcription.mid")
 
-def build_midi_notes(probability_matrix):
+def build_midi_notes(probability_matrix, sr=16000, hop_length=512):
     binary_matrix = (probability_matrix > 0.5).astype(int)
 
     tracker = np.full(88, -1)
-
+    last_off_frame = np.full(88, -1)  # Tracks when a note just ended
     completed_notes = []
 
-    # iterate through each frame and note to track the start and end of notes
+    # Post-processing hyperparameters
+    MAX_GAP_FRAMES = 3   # If note returns within 3 frames, bridge the gap
+    MIN_NOTE_FRAMES = 3  # Discard notes shorter than 3 frames (noise)
+
+    # 1. Iterate through frames to track note states
     for frame in range(binary_matrix.shape[1]):
         for note in range(88):
             if binary_matrix[note, frame] == 1:
+                # The note is active
                 if tracker[note] == -1:
-                    tracker[note] = frame
+                    # It just turned on. Did it turn off a fraction of a second ago?
+                    if last_off_frame[note] != -1 and (frame - last_off_frame[note]) <= MAX_GAP_FRAMES:
+                        # Bridge the gap: Find the previously completed note and re-open it
+                        for i in reversed(range(len(completed_notes))):
+                            if completed_notes[i][0] == note + 21 and completed_notes[i][2] == last_off_frame[note]:
+                                tracker[note] = completed_notes[i][1] # Recover original start time
+                                completed_notes.pop(i) # Remove the fragmented piece
+                                break
+                        
+                        # Fallback just in case it wasn't found
+                        if tracker[note] == -1: 
+                            tracker[note] = frame
+                    else:
+                        # Truly a new note
+                        tracker[note] = frame
             else:
+                # The note is inactive
                 if tracker[note] != -1:
-                    completed_notes.append((note + 21, tracker[note], frame))
+                    duration = frame - tracker[note]
+                    if duration >= MIN_NOTE_FRAMES:
+                        completed_notes.append((note + 21, tracker[note], frame))
+                        last_off_frame[note] = frame # Mark when it died for potential bridging
                     tracker[note] = -1
 
-    # hanging notes at the end of the sequence
+    # 2. Clean up hanging notes at the end
     for note in range(88):
         if tracker[note] != -1:
-            completed_notes.append((note + 21, tracker[note], binary_matrix.shape[1]))
+            duration = binary_matrix.shape[1] - tracker[note]
+            if duration >= MIN_NOTE_FRAMES:
+                completed_notes.append((note + 21, tracker[note], binary_matrix.shape[1]))
 
-    # convert to MIDI FILE
+    # 3. Convert to MIDI File
     midi = pretty_midi.PrettyMIDI()
     piano_program = pretty_midi.instrument_name_to_program('Acoustic Grand Piano')
     piano = pretty_midi.Instrument(program=piano_program)
 
-    frame_duration = HOP_LENGTH / SR  # duration of each frame in seconds
-    # set each note in midi file
+    frame_duration = hop_length / sr  
+
     for note, start_frame, end_frame in completed_notes:
         start_time = start_frame * frame_duration
         end_time = end_frame * frame_duration
-
-        # create the note (velocity at 100 temporarily)
         midi_note = pretty_midi.Note(velocity=100, pitch=note, start=start_time, end=end_time)
-
         piano.notes.append(midi_note)
 
     midi.instruments.append(piano)
