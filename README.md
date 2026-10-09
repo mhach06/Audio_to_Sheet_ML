@@ -1,5 +1,7 @@
 # Audio to Sheet ML 🎵 ➡️ 🎼
 
+> **🚧 P.O.C. Disclaimer:** This project is currently a Proof of Concept. The model is actively being refined, particularly in the post-processing stage, to resolve difficulties in differentiating between naturally fading acoustics and intentionally sustained notes.
+
 An end-to-end Machine Learning pipeline that transcribes raw audio recordings into readable sheet music and MIDI files.
 
 ---
