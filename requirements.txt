@@ -1,0 +1,7 @@
+torch
+numpy
+librosa
+scipy
+soundfile
+pretty_midi
+music21
