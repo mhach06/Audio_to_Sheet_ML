@@ -43,7 +43,6 @@ cd Audio_to_Sheet_ML
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
 ```
 
 *(Note: If using `music21`'s visual score rendering, you must install MuseScore or LilyPond on your machine).*
@@ -64,7 +63,6 @@ Run the test script to process your evaluation audio. The script will load your 
 
 ```bash
 python test_model.py --audio twinkle-twinkle-little-star-easy.wav --model piano_model.pth
-
 ```
 
 *(Note: If you are using weights saved from a specific epoch, you can point to that specific file, like `piano_model_epoch24.pth`).*
@@ -84,7 +82,6 @@ If you are running this in Google Colab to leverage free GPUs for faster inferen
 ```bash
 !git clone [https://github.com/mhach06/Audio_to_Sheet_ML.git](https://github.com/mhach06/Audio_to_Sheet_ML.git)
 %cd Audio_to_Sheet_ML
-
 ```
 
 **2. Install dependencies:**
@@ -92,12 +89,10 @@ If you are running this in Google Colab to leverage free GPUs for faster inferen
 ```bash
 !pip install -q -r requirements.txt
 !apt-get update -qq && apt-get install -y -qq musescore3
-
 ```
 
 **3. Run Testing / Inference:**
 
 ```bash
 !python test_model.py --audio test_song.wav --model piano_model.pth
-
 ```
